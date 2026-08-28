@@ -21,6 +21,10 @@ permissions:
 
 env:
   FLET_VERSION: "0.86.5"
+  # 强制Python输出UTF-8，解决Windows编码问题
+  PYTHONIOENCODING: "utf-8"
+  LANG: "C.UTF-8"
+  LC_ALL: "C.UTF-8"
 
 jobs:
   macos:
@@ -30,13 +34,10 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
-
-      # ===== 关键修复：安装 Flutter =====
+          python-version: "3.11"  # 固定3.11，避免3.14不兼容
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: "3.22.0"
-
       - name: Version
         shell: bash
         run: |
@@ -45,19 +46,21 @@ jobs:
           else
             echo "VERSION=0.0.0-dev" >> "$GITHUB_ENV"
           fi
-
       - name: Install Flet
         run: pip install "flet[all]==${{ env.FLET_VERSION }}"
-
-      - name: Build .app (--yes to skip interactive prompts)
-        run: flet build macos --module-name main.py --product Spectrum --build-version "${{ env.VERSION }}" --yes
-
       - name: Install create-dmg
         run: brew install create-dmg
-
+      - name: Build .app
+        run: flet build macos --module-name main.py --product Spectrum --build-version "${{ env.VERSION }}" --yes
+      - name: Debug (list build output)
+        if: failure() || success()
+        run: |
+          echo "Contents of build/macos:"
+          ls -R build/macos || echo "build/macos not found"
+          echo "Searching for Spectrum.app:"
+          find build -name "*.app" | head -5
       - name: Make DMG
         run: bash scripts/make_dmg.sh "${{ env.VERSION }}"
-
       - uses: actions/upload-artifact@v4
         with:
           name: macos-dmg
@@ -70,13 +73,10 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
-
-      # ===== 关键修复：安装 Flutter =====
+          python-version: "3.11"
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: "3.22.0"
-
       - name: Version
         shell: bash
         run: |
@@ -85,18 +85,21 @@ jobs:
           else
             echo "VERSION=0.0.0-dev" >> "$GITHUB_ENV"
           fi
-
+      # 关键：设置控制台编码为UTF-8，并禁用Rich的emoji
+      - name: Set UTF-8 and disable emoji
+        shell: cmd
+        run: |
+          chcp 65001
+          echo "SET PYTHONIOENCODING=utf-8" >> %GITHUB_ENV%
+          echo "SET FLET_DISABLE_EMOJI=1" >> %GITHUB_ENV%
       - name: Install Flet
         run: pip install "flet[all]==${{ env.FLET_VERSION }}"
-
       - name: Build Windows app
         run: flet build windows --module-name main.py --product Spectrum --build-version "${{ env.VERSION }}" --yes
-
       - name: Zip portable EXE
         shell: bash
         run: |
           mkdir -p release
-          # Flet 0.86+ 输出路径示例: build/windows/runner/Release/Spectrum.exe
           SRC=$(find build/windows -iname 'Spectrum.exe' | head -n1)
           if [[ -z "$SRC" ]]; then
             echo "Spectrum.exe not found" >&2
@@ -105,7 +108,6 @@ jobs:
           fi
           DIR="$(dirname "$SRC")"
           (cd "$DIR" && zip -r "$GITHUB_WORKSPACE/release/Spectrum-${VERSION}-windows.zip" .)
-
       - uses: actions/upload-artifact@v4
         with:
           name: windows-zip
@@ -118,19 +120,15 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
-
-      # ===== 关键修复：安装 Flutter =====
+          python-version: "3.11"  # 关键：避免使用3.14
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: "3.22.0"
-
-      - name: Setup Java (v5, 不是 v4)
+      - name: Setup Java
         uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "17"
-
       - name: Version
         shell: bash
         run: |
@@ -139,13 +137,13 @@ jobs:
           else
             echo "VERSION=0.0.0-dev" >> "$GITHUB_ENV"
           fi
-
       - name: Install Flet
         run: pip install "flet[all]==${{ env.FLET_VERSION }}"
-
+      # Android构建前接受licenses（避免flutter doctor报错）
+      - name: Accept Android licenses
+        run: yes | flutter doctor --android-licenses || true
       - name: Build APK
         run: flet build apk --module-name main.py --product Spectrum --build-version "${{ env.VERSION }}" --yes
-
       - name: Collect APK
         shell: bash
         run: |
@@ -156,7 +154,6 @@ jobs:
             exit 1
           fi
           cp "$APK" "release/Spectrum-${VERSION}-android.apk"
-
       - uses: actions/upload-artifact@v4
         with:
           name: android-apk
@@ -169,13 +166,10 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
-
-      # ===== 关键修复：安装 Flutter =====
+          python-version: "3.11"
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: "3.22.0"
-
       - name: Version
         shell: bash
         run: |
@@ -184,31 +178,26 @@ jobs:
           else
             echo "VERSION=0.0.0-dev" >> "$GITHUB_ENV"
           fi
-
       - name: Install system deps
         run: |
           sudo apt-get update
           sudo apt-get install -y libgtk-3-dev libblkid-dev liblzma-dev
-
       - name: Install Flet
         run: pip install "flet[all]==${{ env.FLET_VERSION }}"
-
       - name: Build Linux
         run: flet build linux --module-name main.py --product Spectrum --build-version "${{ env.VERSION }}" --yes
-
-      - name: Pack tarball
+      - name: Pack tarball (actual path)
         shell: bash
         run: |
           mkdir -p release
-          # Flet 0.86+ 输出路径: build/linux/*/bundle/
-          BUNDLE_DIR=$(find build/linux -type d -name "bundle" | head -n1)
-          if [[ -z "$BUNDLE_DIR" ]]; then
-            echo "bundle directory not found" >&2
-            find build/linux -type d | head
-            exit 1
+          # 实际输出路径为 build/linux/app/ （包含可执行文件及资源）
+          APP_DIR="build/linux/app"
+          if [[ -d "$APP_DIR" ]]; then
+            (cd "$APP_DIR" && tar -czf "$GITHUB_WORKSPACE/release/Spectrum-${VERSION}-linux.tar.gz" .)
+          else
+            echo "App directory not found, fallback to build/linux"
+            (cd build/linux && tar -czf "$GITHUB_WORKSPACE/release/Spectrum-${VERSION}-linux.tar.gz" .)
           fi
-          (cd "$BUNDLE_DIR" && tar -czf "$GITHUB_WORKSPACE/release/Spectrum-${VERSION}-linux.tar.gz" .)
-
       - uses: actions/upload-artifact@v4
         with:
           name: linux-tarball
