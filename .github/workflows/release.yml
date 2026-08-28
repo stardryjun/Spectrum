@@ -7,7 +7,7 @@
 #   Spectrum-<ver>-macos.dmg
 #   Spectrum-<ver>-windows.zip   (contains Spectrum.exe)
 #   Spectrum-<ver>-linux.tar.gz
-#   (Android APK is temporarily disabled due to Pyodide dependency conflicts)
+#   Spectrum-<ver>-android.apk
 
 name: Release
 
@@ -51,7 +51,7 @@ jobs:
         run: |
           brew install create-dmg
           brew install gtk+3 || echo "gtk+3 not needed, continuing"
-      - name: Build .app (use system Python)
+      - name: Build .app
         run: |
           flet build macos \
             --module-name main.py \
@@ -112,56 +112,56 @@ jobs:
           name: windows-zip
           path: release/*.zip
 
-  # Android temporarily disabled – Pyodide dependency conflicts in Flet 0.86.5
-  # android:
-  #   name: Android APK
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - uses: actions/setup-python@v5
-  #       with:
-  #         python-version: "3.11"
-  #     - uses: subosito/flutter-action@v2
-  #       with:
-  #         flutter-version: "3.22.0"
-  #     - name: Setup Java
-  #       uses: actions/setup-java@v5
-  #       with:
-  #         distribution: temurin
-  #         java-version: "17"
-  #     - name: Version
-  #       shell: bash
-  #       run: |
-  #         if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
-  #           echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
-  #         else
-  #           echo "VERSION=0.0.0-dev" >> "$GITHUB_ENV"
-  #         fi
-  #     - name: Install Flet (core only)
-  #       run: pip install flet==${{ env.FLET_VERSION }}
-  #     - name: Accept Android licenses
-  #       run: yes | flutter doctor --android-licenses || true
-  #     - name: Build APK
-  #       run: |
-  #         flet build apk \
-  #           --module-name main.py \
-  #           --product Spectrum \
-  #           --build-version "${{ env.VERSION }}" \
-  #           --yes
-  #     - name: Collect APK
-  #       shell: bash
-  #       run: |
-  #         mkdir -p release
-  #         APK=$(find build -name '*.apk' | head -n1)
-  #         if [[ -z "$APK" ]]; then
-  #           echo "APK not found" >&2
-  #           exit 1
-  #         fi
-  #         cp "$APK" "release/Spectrum-${VERSION}-android.apk"
-  #     - uses: actions/upload-artifact@v4
-  #       with:
-  #         name: android-apk
-  #         path: release/*.apk
+  android:
+    name: Android APK
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.22.0"
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Version
+        shell: bash
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+          else
+            echo "VERSION=0.0.0-dev" >> "$GITHUB_ENV"
+          fi
+      - name: Install Flet (core only)
+        run: pip install flet==${{ env.FLET_VERSION }}
+      - name: Accept Android licenses
+        run: yes | flutter doctor --android-licenses || true
+      - name: Build APK (force Python 3.13 to avoid Pyodide 3.14 conflicts)
+        run: |
+          flet build apk \
+            --module-name main.py \
+            --product Spectrum \
+            --build-version "${{ env.VERSION }}" \
+            --python-version 3.13 \
+            --yes
+      - name: Collect APK
+        shell: bash
+        run: |
+          mkdir -p release
+          APK=$(find build -name '*.apk' | head -n1)
+          if [[ -z "$APK" ]]; then
+            echo "APK not found" >&2
+            exit 1
+          fi
+          cp "$APK" "release/Spectrum-${VERSION}-android.apk"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: release/*.apk
 
   linux:
     name: Linux tarball
@@ -208,7 +208,7 @@ jobs:
 
   publish:
     name: GitHub Release
-    needs: [macos, windows, linux]   # 移除了 android
+    needs: [macos, windows, linux, android]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
     steps:
