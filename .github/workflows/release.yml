@@ -20,7 +20,7 @@ permissions:
   contents: write
 
 env:
-  FLET_VERSION: "0.87.0"
+  FLET_VERSION: "0.86.5" 
   # 强制Python输出UTF-8，解决Windows编码问题
   PYTHONIOENCODING: "utf-8"
   LANG: "C.UTF-8"
