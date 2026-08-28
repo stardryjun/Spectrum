@@ -1,0 +1,45 @@
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+dist/
+*.egg
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Flet / Flutter
+build/
+.flet/
+.dart_tool/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDEs
+.idea/
+.vscode/
+*.swp
+
+# Local packaging output (GitHub Releases host binaries, not git)
+release/
+*.dmg
+*.apk
+*.aab
+*.ipa
+*.exe
+*.msix
+*.app.zip
+
+# Secrets
+*.jks
+*.keystore
+.env
+.env.*
+!*.env.example

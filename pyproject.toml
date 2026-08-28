@@ -1,0 +1,49 @@
+[project]
+name = "spectrum"
+version = "1.0.0"
+description = "Spectrum — a cross-platform, AI-styled Pomodoro timer"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10"
+authors = [{ name = "Spectrum Contributors" }]
+keywords = ["pomodoro", "timer", "productivity", "flet", "focus"]
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Operating System :: OS Independent",
+    "Topic :: Utilities",
+]
+dependencies = ["flet[all]>=0.80.0"]
+
+[project.urls]
+Homepage = "https://github.com/harryrichord/Spectrum"
+Issues = "https://github.com/harryrichord/Spectrum/issues"
+Releases = "https://github.com/harryrichord/Spectrum/releases"
+
+[tool.flet]
+org = "com.spectrum"
+product = "Spectrum"
+company = "Spectrum"
+copyright = "Copyright (c) 2026 Spectrum Contributors"
+build_number = 1
+
+[tool.flet.app]
+path = "."
+module = "main.py"
+exclude = [".venv", ".git", "build", "__pycache__", "release", "scripts", ".github"]
+
+[tool.flet.splash]
+color = "#070B14"
+dark_color = "#070B14"
+
+[tool.flet.android]
+adaptive_icon_background = "#070B14"
+
+[tool.flet.macos]
+artifact = "Spectrum"
+
+[tool.flet.windows]
+artifact = "Spectrum"
