@@ -26,7 +26,7 @@ env:
   LC_ALL: "C.UTF-8"
 
 jobs:
-  macos:
+    macos:
     name: macOS DMG
     runs-on: macos-latest
     steps:
@@ -58,17 +58,15 @@ jobs:
             --product Spectrum \
             --build-version "${{ env.VERSION }}" \
             --yes
-      - name: Stage .app for DMG packaging
+      - name: Verify .app for DMG packaging
         run: |
-          SRC="build/macos/Build/Products/Release/Spectrum.app"
-          DST="build/macos/Spectrum.app"
-          mkdir -p "$(dirname "$DST")"
-          if [ -d "$SRC" ]; then
-            cp -R "$SRC" "$DST"
-            echo "Staged: $DST"
+          APP="build/macos/Spectrum.app"
+          if [ -d "$APP" ]; then
+            echo "Found: $APP"
+            ls -la "$APP/Contents/MacOS" | head -5
           else
-            echo "ERROR: $SRC not found"
-            find build/macos -name "*.app" | head -5
+            echo "ERROR: $APP not found, searching..."
+            find build -name "*.app" | head -10
             exit 1
           fi
       - name: Debug (list build output)
@@ -82,6 +80,59 @@ jobs:
         with:
           name: macos-dmg
           path: release/*.dmg
+
+  android:
+    name: Android APK
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.22.0"
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Version
+        shell: bash
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+          else
+            echo "VERSION=0.0.0-dev" >> "$GITHUB_ENV"
+          fi
+      - name: Install Flet (core only)
+        run: pip install flet==${{ env.FLET_VERSION }}
+      - name: Accept Android licenses
+        run: yes | flutter doctor --android-licenses || true
+      - name: Build APK (clean cache + force Python 3.12 + latest template)
+        run: |
+          flet clean || true
+          flet build apk \
+            --module-name main.py \
+            --product Spectrum \
+            --build-version "${{ env.VERSION }}" \
+            --python-version 3.12 \
+            --template-ref main \
+            --yes
+      - name: Collect APK
+        shell: bash
+        run: |
+          mkdir -p release
+          APK=$(find build -name '*.apk' | head -n1)
+          if [[ -z "$APK" ]]; then
+            echo "APK not found" >&2
+            exit 1
+          fi
+          cp "$APK" "release/Spectrum-${VERSION}-android.apk"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: release/*.apk
 
   windows:
     name: Windows EXE
