@@ -28,130 +28,130 @@ env:
 
 jobs:
   macos:
-  name: macOS DMG
-  runs-on: macos-latest
-  steps:
-    - uses: actions/checkout@v4
-    - uses: actions/setup-python@v5
-      with:
-        python-version: "3.11"
-    - uses: subosito/flutter-action@v2
-      with:
-        flutter-version: "3.22.0"
-    - name: Version
-      shell: bash
-      run: |
-        if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
-          echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
-        else
-          echo "VERSION=0.0.0-dev" >> "$GITHUB_ENV"
-        fi
-    - name: Install Flet
-      run: pip install "flet[all]==${{ env.FLET_VERSION }}"
-    - name: Install macOS build deps
-      run: |
-        brew install create-dmg
-        brew install gtk+3 || echo "gtk+3 not needed, continuing"
-    - name: Build .app
-      run: flet build macos --module-name main.py --product Spectrum --build-version "${{ env.VERSION }}" --yes
-    - name: Debug (list build output)
-      if: always()
-      run: |
-        echo "Contents of build/macos:"
-        ls -R build/macos || echo "build/macos not found"
-        echo "Searching for Spectrum.app:"
-        find build -name "*.app" | head -5
-    - name: Make DMG
-      run: bash scripts/make_dmg.sh "${{ env.VERSION }}"
-    - uses: actions/upload-artifact@v4
-      with:
-        name: macos-dmg
-        path: release/*.dmg
+    name: macOS DMG
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.22.0"
+      - name: Version
+        shell: bash
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+          else
+            echo "VERSION=0.0.0-dev" >> "$GITHUB_ENV"
+          fi
+      - name: Install Flet
+        run: pip install "flet[all]==${{ env.FLET_VERSION }}"
+      - name: Install macOS build deps
+        run: |
+          brew install create-dmg
+          brew install gtk+3 || echo "gtk+3 not needed, continuing"
+      - name: Build .app
+        run: flet build macos --module-name main.py --product Spectrum --build-version "${{ env.VERSION }}" --yes
+      - name: Debug (list build output)
+        if: always()
+        run: |
+          echo "Contents of build/macos:"
+          ls -R build/macos || echo "build/macos not found"
+          echo "Searching for Spectrum.app:"
+          find build -name "*.app" | head -5
+      - name: Make DMG
+        run: bash scripts/make_dmg.sh "${{ env.VERSION }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-dmg
+          path: release/*.dmg
 
   windows:
-  name: Windows EXE
-  runs-on: windows-latest
-  steps:
-    - uses: actions/checkout@v4
-    - uses: actions/setup-python@v5
-      with:
-        python-version: "3.11"
-    - uses: subosito/flutter-action@v2
-      with:
-        flutter-version: "3.22.0"
-    - name: Version
-      shell: bash
-      run: |
-        if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
-          echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
-        else
-          echo "VERSION=0.0.0-dev" >> "$GITHUB_ENV"
-        fi
-    - name: Install Flet
-      run: pip install "flet[all]==${{ env.FLET_VERSION }}"
-    - name: Build Windows app
-      run: flet build windows --module-name main.py --product Spectrum --build-version "${{ env.VERSION }}" --yes
-    - name: Zip portable EXE (PowerShell)
-      shell: powershell
-      run: |
-        mkdir release -Force
-        $exe = Get-ChildItem -Path build/windows -Filter "Spectrum.exe" -Recurse | Select-Object -First 1
-        if ($exe -eq $null) {
-          Write-Error "Spectrum.exe not found"
-          exit 1
-        }
-        $dir = $exe.Directory.FullName
-        $zipFile = "release/Spectrum-$env:VERSION-windows.zip"
-        Compress-Archive -Path "$dir\*" -DestinationPath $zipFile -Force
-    - uses: actions/upload-artifact@v4
-      with:
-        name: windows-zip
-        path: release/*.zip
+    name: Windows EXE
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.22.0"
+      - name: Version
+        shell: bash
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+          else
+            echo "VERSION=0.0.0-dev" >> "$GITHUB_ENV"
+          fi
+      - name: Install Flet
+        run: pip install "flet[all]==${{ env.FLET_VERSION }}"
+      - name: Build Windows app
+        run: flet build windows --module-name main.py --product Spectrum --build-version "${{ env.VERSION }}" --yes
+      - name: Zip portable EXE (PowerShell)
+        shell: powershell
+        run: |
+          mkdir release -Force
+          $exe = Get-ChildItem -Path build/windows -Filter "Spectrum.exe" -Recurse | Select-Object -First 1
+          if ($exe -eq $null) {
+            Write-Error "Spectrum.exe not found"
+            exit 1
+          }
+          $dir = $exe.Directory.FullName
+          $zipFile = "release/Spectrum-$env:VERSION-windows.zip"
+          Compress-Archive -Path "$dir\*" -DestinationPath $zipFile -Force
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-zip
+          path: release/*.zip
 
   android:
-  name: Android APK
-  runs-on: ubuntu-latest
-  steps:
-    - uses: actions/checkout@v4
-    - uses: actions/setup-python@v5
-      with:
-        python-version: "3.11"
-    - uses: subosito/flutter-action@v2
-      with:
-        flutter-version: "3.22.0"
-    - name: Setup Java
-      uses: actions/setup-java@v5
-      with:
-        distribution: temurin
-        java-version: "17"
-    - name: Version
-      shell: bash
-      run: |
-        if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
-          echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
-        else
-          echo "VERSION=0.0.0-dev" >> "$GITHUB_ENV"
-        fi
-    - name: Install Flet
-      run: pip install "flet[all]==${{ env.FLET_VERSION }}"
-    - name: Accept Android licenses
-      run: yes | flutter doctor --android-licenses || true
-    - name: Build APK
-      run: flet build apk --module-name main.py --product Spectrum --build-version "${{ env.VERSION }}" --yes
-    - name: Collect APK
-      shell: bash
-      run: |
-        mkdir -p release
-        APK=$(find build -name '*.apk' | head -n1)
-        if [[ -z "$APK" ]]; then
-          echo "APK not found" >&2
-          exit 1
-        fi
-        cp "$APK" "release/Spectrum-${VERSION}-android.apk"
-    - uses: actions/upload-artifact@v4
-      with:
-        name: android-apk
-        path: release/*.apk
+    name: Android APK
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.22.0"
+      - name: Setup Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Version
+        shell: bash
+        run: |
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+          else
+            echo "VERSION=0.0.0-dev" >> "$GITHUB_ENV"
+          fi
+      - name: Install Flet
+        run: pip install "flet[all]==${{ env.FLET_VERSION }}"
+      - name: Accept Android licenses
+        run: yes | flutter doctor --android-licenses || true
+      - name: Build APK
+        run: flet build apk --module-name main.py --product Spectrum --build-version "${{ env.VERSION }}" --yes
+      - name: Collect APK
+        shell: bash
+        run: |
+          mkdir -p release
+          APK=$(find build -name '*.apk' | head -n1)
+          if [[ -z "$APK" ]]; then
+            echo "APK not found" >&2
+            exit 1
+          fi
+          cp "$APK" "release/Spectrum-${VERSION}-android.apk"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: release/*.apk
 
   linux:
     name: Linux tarball
