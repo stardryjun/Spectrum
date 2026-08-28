@@ -16,12 +16,14 @@ classifiers = [
     "Operating System :: OS Independent",
     "Topic :: Utilities",
 ]
-dependencies = ["flet[all]>=0.80.0"]
+
+# 移动端构建时 flet 会由模板直接处理，此处不要重复引入 flet 避免 pip only-binary 解析冲突
+dependencies = []
 
 [project.urls]
-Homepage = "https://github.com/harryrichord/Spectrum"
-Issues = "https://github.com/harryrichord/Spectrum/issues"
-Releases = "https://github.com/harryrichord/Spectrum/releases"
+Homepage = "https://github.com/stardryjun/Spectrum"
+Issues = "https://github.com/stardryjun/Spectrum/issues"
+Releases = "https://github.com/stardryjun/Spectrum/releases"
 
 [tool.flet]
 org = "com.spectrum"
@@ -41,6 +43,8 @@ dark_color = "#070B14"
 
 [tool.flet.android]
 adaptive_icon_background = "#070B14"
+# 仅构建 arm64-v8a，避免 x86/v7a 缺失 wheel 导致的 ResolutionImpossible
+target_arch = ["arm64-v8a"]
 
 [tool.flet.macos]
 artifact = "Spectrum"
