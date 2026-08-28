@@ -3,30 +3,40 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-APP_SRC="${1:-}"
-VERSION="${2:-1.0.0}"
+ARG1="${1:-}"
+ARG2="${2:-}"
+
+APP_SRC=""
+VERSION="1.0.0"
+
+# 智能识别参数：如果第一个参数是目录或以 .app 结尾，则是路径；否则作为版本号
+if [[ -n "${ARG1}" ]]; then
+  if [[ -d "${ARG1}" || "${ARG1}" == *.app ]]; then
+    APP_SRC="${ARG1}"
+    VERSION="${ARG2:-1.0.0}"
+  else
+    VERSION="${ARG1}"
+    APP_SRC="${ARG2}"
+  fi
+fi
+
 OUT_DIR="${ROOT}/release"
 STAGE="${ROOT}/build/dmg-stage"
 VOL="Spectrum"
 
-if [[ -z "${APP_SRC}" ]]; then
-  # flet build macos default locations
-  for cand in \
-    "${ROOT}/build/macos/Spectrum.app" \
-    "${ROOT}/build/macos/spectrum.app" \
-    "${ROOT}"/build/macos/*.app
-  do
-    if [[ -d "${cand}" ]]; then
-      APP_SRC="${cand}"
-      break
-    fi
-  done
+# 如果未指定 app 路径或路径不存在，则递归自动查找
+if [[ -z "${APP_SRC}" || ! -d "${APP_SRC}" ]]; then
+  echo "Searching for .app bundle in ${ROOT}/build..."
+  APP_SRC=$(find "${ROOT}/build" -name "Spectrum.app" -o -name "*.app" 2>/dev/null | grep -v "dmg-stage" | head -n 1 || true)
 fi
 
 if [[ -z "${APP_SRC}" || ! -d "${APP_SRC}" ]]; then
-  echo "Spectrum.app not found. Run: flet build macos" >&2
+  echo "Error: .app bundle not found in build directory. Run: flet build macos" >&2
   exit 1
 fi
+
+echo "Using App: ${APP_SRC}"
+echo "Building DMG Version: ${VERSION}"
 
 mkdir -p "${OUT_DIR}" "${STAGE}"
 rm -rf "${STAGE:?}/"*
@@ -43,7 +53,7 @@ hdiutil create \
   -ov -format UDRW \
   "${DMG_TMP}" >/dev/null
 
-# Compact to a compressed, double-clickable image
+# 转换为压缩只读镜像
 hdiutil convert "${DMG_TMP}" -format UDZO -imagekey zlib-level=9 -o "${DMG_OUT}" >/dev/null
 rm -f "${DMG_TMP}"
 rm -rf "${STAGE}"

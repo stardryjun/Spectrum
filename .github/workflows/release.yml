@@ -36,10 +36,8 @@ jobs:
           fi
       - name: Install Flet
         run: pip install flet==${{ env.FLET_VERSION }}
-      - name: Install macOS build deps
-        run: |
-          brew install create-dmg
-          brew install gtk+3 || echo "gtk+3 not needed, continuing"
+      - name: Install DMG tool
+        run: brew install create-dmg
       - name: Build macOS App
         run: |
           flet build macos \
@@ -47,12 +45,55 @@ jobs:
             --product Spectrum \
             --build-version "${{ env.VERSION }}" \
             --yes
-      - name: Verify & List build output
+      - name: Package DMG (Robust)
+        shell: bash
         run: |
-          echo "Listing build/macos:"
-          find build/macos -maxdepth 3 || true
-      - name: Make DMG
-        run: bash scripts/make_dmg.sh "${{ env.VERSION }}"
+          mkdir -p release
+          # 动态搜索生成的 .app 目录
+          APP_PATH=$(find build/macos -name "Spectrum.app" -type d | head -n 1)
+          if [[ -z "$APP_PATH" ]]; then
+            APP_PATH=$(find build -name "*.app" -type d | head -n 1)
+          fi
+          
+          if [[ -z "$APP_PATH" ]]; then
+            echo "ERROR: Could not find any .app bundle in build directory!" >&2
+            find build || true
+            exit 1
+          fi
+          echo "Found app bundle at: $APP_PATH"
+          
+          # 确保根目录或 build/macos/ 下有统一入口供脚本调用，同时直接使用 create-dmg
+          mkdir -p build/macos/Build/Products/Release
+          cp -R "$APP_PATH" "build/macos/Build/Products/Release/" 2>/dev/null || true
+          cp -R "$APP_PATH" "build/macos/" 2>/dev/null || true
+          cp -R "$APP_PATH" "." 2>/dev/null || true
+          
+          if [ -f scripts/make_dmg.sh ]; then
+            bash scripts/make_dmg.sh "${VERSION}" || {
+              echo "make_dmg.sh failed, falling back to direct create-dmg..."
+              create-dmg \
+                --volname "Spectrum" \
+                --window-pos 200 120 \
+                --window-size 800 400 \
+                --icon-size 100 \
+                --icon "Spectrum.app" 200 190 \
+                --hide-extension "Spectrum.app" \
+                --app-drop-link 600 185 \
+                "release/Spectrum-${VERSION}-macos.dmg" \
+                "$APP_PATH"
+            }
+          else
+            create-dmg \
+              --volname "Spectrum" \
+              --window-pos 200 120 \
+              --window-size 800 400 \
+              --icon-size 100 \
+              --icon "Spectrum.app" 200 190 \
+              --hide-extension "Spectrum.app" \
+              --app-drop-link 600 185 \
+              "release/Spectrum-${VERSION}-macos.dmg" \
+              "$APP_PATH"
+          fi
       - uses: actions/upload-artifact@v4
         with:
           name: macos-dmg
@@ -143,7 +184,7 @@ jobs:
   android:
     name: Android APK
     runs-on: ubuntu-latest
-    continue-on-error: true # 关键：避免 Android 试验性卡点阻塞桌面三端发布
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -169,14 +210,14 @@ jobs:
         run: pip install flet==${{ env.FLET_VERSION }}
       - name: Accept Android licenses
         run: yes | flutter doctor --android-licenses || true
-      - name: Build APK (arm64-v8a only)
+      - name: Build APK (arm64-v8a)
         run: |
           flet clean || true
           flet build apk \
             --module-name main.py \
             --product Spectrum \
             --build-version "${{ env.VERSION }}" \
-            --target-arch arm64-v8a \
+            --arch arm64-v8a \
             --yes
       - name: Collect APK
         shell: bash
@@ -185,8 +226,6 @@ jobs:
           APK=$(find build -name '*.apk' | head -n1)
           if [[ -n "$APK" ]]; then
             cp "$APK" "release/Spectrum-${VERSION}-android.apk"
-          else
-            echo "Warning: APK not generated."
           fi
       - uses: actions/upload-artifact@v4
         if: always()
