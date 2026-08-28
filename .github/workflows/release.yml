@@ -210,21 +210,40 @@ jobs:
         run: pip install flet==${{ env.FLET_VERSION }}
       - name: Accept Android licenses
         run: yes | flutter doctor --android-licenses || true
-      - name: Build APK (arm64-v8a)
+      - name: Prepare requirements for mobile
+        shell: bash
+        run: |
+          # 关键：避免根目录 requirements.txt 干扰 Android site-packages 安装
+          if [ -f requirements.txt ]; then
+            echo "Backing up requirements.txt for Android build"
+            mv requirements.txt requirements.txt.bak
+          fi
+          # 生成仅包含纯运行时依赖的空文件（Flet 核心会由 serious_python 自动注入）
+          touch requirements.txt
+      - name: Build APK
         run: |
           flet clean || true
           flet build apk \
             --module-name main.py \
             --product Spectrum \
             --build-version "${{ env.VERSION }}" \
+            --python-version 3.12 \
             --arch arm64-v8a \
             --yes
+      - name: Restore requirements
+        if: always()
+        shell: bash
+        run: |
+          if [ -f requirements.txt.bak ]; then
+            mv requirements.txt.bak requirements.txt
+          fi
       - name: Collect APK
         shell: bash
         run: |
           mkdir -p release
           APK=$(find build -name '*.apk' | head -n1)
           if [[ -n "$APK" ]]; then
+            echo "Found APK: $APK"
             cp "$APK" "release/Spectrum-${VERSION}-android.apk"
           fi
       - uses: actions/upload-artifact@v4
